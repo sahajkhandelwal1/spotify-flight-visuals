@@ -1,0 +1,152 @@
+"use client";
+
+import { PositionedTrack } from "@/lib/tsne";
+import { FEATURE_NAMES } from "@/lib/features";
+import {
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  Radar,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
+
+interface TrackPanelProps {
+  track: PositionedTrack | null;
+  similar: PositionedTrack[];
+  onClose: () => void;
+  onSelect: (t: PositionedTrack) => void;
+}
+
+export function TrackPanel({ track, similar, onClose, onSelect }: TrackPanelProps) {
+  if (!track) return null;
+
+  const albumArt =
+    track.track.album.images[0]?.url || track.track.album.images[1]?.url;
+
+  const radarData = FEATURE_NAMES.map((name, i) => ({
+    feature: name.slice(0, 5),
+    value: Math.round(track.normalizedFeatures[i] * 100),
+  }));
+
+  return (
+    <div className="fixed right-0 top-0 h-full w-80 bg-gray-950/95 border-l border-gray-800 z-40 flex flex-col overflow-y-auto backdrop-blur-md animate-slide-in-right">
+      {/* Close */}
+      <button
+        onClick={onClose}
+        className="absolute top-3 right-3 text-gray-400 hover:text-white w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-800 transition-colors"
+      >
+        ✕
+      </button>
+
+      {/* Album art */}
+      {albumArt && (
+        <div className="relative">
+          <img src={albumArt} alt="Album art" className="w-full aspect-square object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-gray-950" />
+        </div>
+      )}
+
+      <div className="p-4 flex flex-col gap-4 flex-1">
+        {/* Track info */}
+        <div>
+          <h2 className="text-white font-bold text-lg leading-tight">{track.track.name}</h2>
+          <p className="text-gray-400 text-sm">
+            {track.track.artists.map((a) => a.name).join(", ")}
+          </p>
+          <p className="text-gray-500 text-xs mt-0.5">{track.track.album.name}</p>
+        </div>
+
+        {/* Cluster badge */}
+        <div
+          className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium w-fit"
+          style={{
+            backgroundColor: track.clusterColor + "22",
+            border: `1px solid ${track.clusterColor}55`,
+            color: track.clusterColor,
+          }}
+        >
+          <span
+            className="w-2 h-2 rounded-full"
+            style={{ backgroundColor: track.clusterColor }}
+          />
+          Cluster {track.clusterId}
+        </div>
+
+        {/* Radar chart */}
+        <div>
+          <p className="text-gray-400 text-xs uppercase tracking-wider mb-2">Audio Profile</p>
+          <div className="h-44">
+            <ResponsiveContainer width="100%" height="100%">
+              <RadarChart data={radarData}>
+                <PolarGrid stroke="#374151" />
+                <PolarAngleAxis
+                  dataKey="feature"
+                  tick={{ fill: "#9CA3AF", fontSize: 10 }}
+                />
+                <Radar
+                  name="Features"
+                  dataKey="value"
+                  stroke={track.clusterColor}
+                  fill={track.clusterColor}
+                  fillOpacity={0.2}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "#111827",
+                    border: "1px solid #374151",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                  }}
+                />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Spotify link */}
+        <a
+          href={track.track.external_urls.spotify}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 bg-[#1DB954] hover:bg-[#1ed760] text-black font-semibold text-sm py-2.5 rounded-full transition-colors"
+        >
+          Open in Spotify
+        </a>
+
+        {/* Similar tracks */}
+        {similar.length > 0 && (
+          <div>
+            <p className="text-gray-400 text-xs uppercase tracking-wider mb-2">
+              Similar Tracks
+            </p>
+            <div className="flex flex-col gap-2">
+              {similar.map((s) => {
+                const art = s.track.album.images[2]?.url || s.track.album.images[0]?.url;
+                return (
+                  <button
+                    key={s.track.id}
+                    onClick={() => onSelect(s)}
+                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-800 transition-colors text-left w-full"
+                  >
+                    {art && (
+                      <img src={art} alt="" className="w-8 h-8 rounded flex-shrink-0" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-white text-xs font-medium truncate">
+                        {s.track.name}
+                      </p>
+                      <p className="text-gray-500 text-xs truncate">
+                        {s.track.artists[0]?.name}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
