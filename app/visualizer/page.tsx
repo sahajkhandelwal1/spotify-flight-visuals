@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useSpotifyAuth } from "@/hooks/useSpotifyAuth";
 import { useTrackData } from "@/hooks/useTrackData";
+import { useSpotifyPlayer } from "@/hooks/useSpotifyPlayer";
 import { LoadingScreen } from "@/components/ui/LoadingScreen";
 import { HoverTooltip } from "@/components/ui/HoverTooltip";
 import { TrackPanel } from "@/components/ui/TrackPanel";
@@ -35,6 +36,7 @@ export default function VisualizerPage() {
     document.addEventListener("pointerlockchange", onLockChange);
     return () => document.removeEventListener("pointerlockchange", onLockChange);
   }, []);
+  const player = useSpotifyPlayer(token);
   const [selectedTrack, setSelectedTrack] = useState<PositionedTrack | null>(null);
   const [skipIntro, setSkipIntro] = useState(false);
   // Redirect to login if no token
@@ -50,10 +52,13 @@ export default function VisualizerPage() {
   }, []);
 
   const handleSelect = useCallback((track: PositionedTrack) => {
-    if (document.pointerLockElement) document.exitPointerLock();
-    setSelectedTrack((prev) => (prev?.track.id === track.track.id ? null : track));
+    setSelectedTrack((prev) => {
+      if (prev?.track.id === track.track.id) return null;
+      if (player.isPremium && player.isReady) player.play(track.track.id);
+      return track;
+    });
     setHoveredTrack(null);
-  }, []);
+  }, [player]);
 
   // Find 3 nearest neighbors in t-SNE space
   const similarTracks = useMemo(() => {
@@ -112,6 +117,7 @@ export default function VisualizerPage() {
           onSelect={handleSelect}
           skipIntro={skipIntro}
           pointerLocked={pointerLocked}
+          playingTrackId={player.isPremium ? player.currentTrackId : (selectedTrack?.track.id ?? null)}
         />
       </div>
 
@@ -152,14 +158,14 @@ export default function VisualizerPage() {
       {/* Controls hint */}
       {!pointerLocked && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 bg-black/60 text-gray-400 text-xs px-4 py-2 rounded-full backdrop-blur-sm border border-gray-800 flex gap-3">
-          <span>Press <kbd className="bg-gray-700 px-1 rounded">F</kbd> to fly</span>
+          <span>Press <kbd className="bg-gray-700 px-1 rounded">Shift</kbd> to fly</span>
           <span>·</span>
           <span>Click nodes to inspect</span>
         </div>
       )}
       {pointerLocked && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 bg-black/60 text-gray-400 text-xs px-4 py-2 rounded-full backdrop-blur-sm border border-gray-800">
-          WASD · Space/Shift · Ctrl boost · <kbd className="bg-gray-700 px-1 rounded">F</kbd> to unlock
+          WASD · Space · Ctrl boost · <kbd className="bg-gray-700 px-1 rounded">Shift</kbd> to unlock
         </div>
       )}
 
@@ -174,6 +180,7 @@ export default function VisualizerPage() {
         similar={similarTracks}
         onClose={() => setSelectedTrack(null)}
         onSelect={handleSelect}
+        player={player.isPremium ? { isReady: player.isReady, isPlaying: player.isPlaying, toggle: player.toggle } : null}
       />
     </div>
   );

@@ -19,6 +19,7 @@ interface SceneProps {
   onSelect: (track: PositionedTrack) => void;
   skipIntro: boolean;
   pointerLocked: boolean;
+  playingTrackId?: string | null;
 }
 
 function SceneInner({
@@ -28,6 +29,7 @@ function SceneInner({
   onSelect,
   skipIntro,
   pointerLocked,
+  playingTrackId,
 }: SceneProps) {
   const [introComplete, setIntroComplete] = useState(skipIntro);
   const [labelsVisible, setLabelsVisible] = useState(skipIntro);
@@ -61,7 +63,7 @@ function SceneInner({
       ))}
 
       {/* NodeCloud needs no Suspense — no async resources */}
-      <NodeCloud tracks={tracks} onHover={onHover} onSelect={onSelect} />
+      <NodeCloud tracks={tracks} onHover={onHover} onSelect={onSelect} playingTrackId={playingTrackId} />
 
       {/* ClusterLabels loads a font async — isolated Suspense so it never blocks NodeCloud */}
       <Suspense fallback={null}>
@@ -97,6 +99,7 @@ export function Scene({
   onSelect,
   skipIntro,
   pointerLocked,
+  playingTrackId,
 }: SceneProps) {
   return (
     <Canvas
@@ -111,6 +114,7 @@ export function Scene({
         onSelect={onSelect}
         skipIntro={skipIntro}
         pointerLocked={pointerLocked}
+        playingTrackId={playingTrackId}
       />
     </Canvas>
   );

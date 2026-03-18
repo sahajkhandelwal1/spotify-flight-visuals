@@ -37,14 +37,17 @@ function TrackNode({
   track,
   onHover,
   onSelect,
+  isNowPlaying,
 }: {
   track: PositionedTrack;
   onHover: (t: PositionedTrack | null, x: number, y: number) => void;
   onSelect: (t: PositionedTrack) => void;
+  isNowPlaying: boolean;
 }) {
-  const coreRef  = useRef<THREE.Mesh>(null!);
-  const shellRef = useRef<THREE.Mesh>(null!);
-  const haloRef  = useRef<THREE.Sprite>(null!);
+  const coreRef       = useRef<THREE.Mesh>(null!);
+  const shellRef      = useRef<THREE.Mesh>(null!);
+  const haloRef       = useRef<THREE.Sprite>(null!);
+  const nowPlayingRef = useRef<THREE.Sprite>(null!);
   const { camera } = useThree();
 
   const color = track.clusterColor || "#ff4444";
@@ -65,27 +68,53 @@ function TrackNode({
 
     if (coreRef.current) {
       coreRef.current.scale.setScalar(pulse);
-      // Animate emissive intensity — makes the star feel alive
       const mat = coreRef.current.material as THREE.MeshStandardMaterial;
       mat.emissiveIntensity = 1.8 + Math.sin(t * 2.1 + phase) * 0.4;
+      mat.color.set(isNowPlaying ? "#ffffff" : color);
+      mat.emissive.set(isNowPlaying ? "#ffffff" : color);
     }
 
     if (shellRef.current) {
       shellRef.current.scale.setScalar(pulse * 1.1);
       const mat = shellRef.current.material as THREE.MeshStandardMaterial;
       mat.opacity = 0.10 + Math.sin(t * 1.4 + phase) * 0.03;
+      mat.color.set(isNowPlaying ? "#ffffff" : color);
+      mat.emissive.set(isNowPlaying ? "#ffffff" : color);
     }
 
     if (haloRef.current) {
-      // Scale halo up when far away so clusters stay visible across the galaxy
       const dist = cam.position.distanceTo(haloRef.current.position);
       const distFactor = THREE.MathUtils.clamp(dist / 80, 0.6, 2.2);
       haloRef.current.scale.setScalar(pulse * 4.2 * distFactor);
+      (haloRef.current.material as THREE.SpriteMaterial).color.set(isNowPlaying ? "#ffffff" : color);
+    }
+
+    if (nowPlayingRef.current && isNowPlaying) {
+      const nowPulse = 1 + Math.sin(t * 3.5) * 0.25;
+      const dist = cam.position.distanceTo(nowPlayingRef.current.position);
+      const distFactor = THREE.MathUtils.clamp(dist / 80, 0.6, 2.2);
+      nowPlayingRef.current.scale.setScalar(nowPulse * 6.5 * distFactor);
+      const mat = nowPlayingRef.current.material as THREE.SpriteMaterial;
+      mat.opacity = 0.55 + Math.sin(t * 3.5) * 0.2;
     }
   });
 
   return (
     <group position={track.position}>
+      {/* ── Now-playing pulse: white glow, faster pulse, larger scale ───── */}
+      {isNowPlaying && (
+        <sprite ref={nowPlayingRef} scale={[6.5, 6.5, 6.5]}>
+          <spriteMaterial
+            map={glowTex}
+            color="#ffffff"
+            transparent
+            opacity={0.55}
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+          />
+        </sprite>
+      )}
+
       {/* ── Billboard halo: radial glow sprite, additive blending ───────── */}
       <sprite ref={haloRef} scale={[2.4, 2.4, 2.4]}>
         <spriteMaterial
@@ -153,10 +182,12 @@ export function NodeCloud({
   tracks,
   onHover,
   onSelect,
+  playingTrackId,
 }: {
   tracks: PositionedTrack[];
   onHover: (track: PositionedTrack | null, x: number, y: number) => void;
   onSelect: (track: PositionedTrack) => void;
+  playingTrackId?: string | null;
 }) {
   return (
     <>
@@ -166,6 +197,7 @@ export function NodeCloud({
           track={track}
           onHover={onHover}
           onSelect={onSelect}
+          isNowPlaying={track.track.id === playingTrackId}
         />
       ))}
     </>

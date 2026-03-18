@@ -14,6 +14,8 @@ export const SCOPES = [
   "user-read-recently-played",
   "user-library-read",
   "user-read-private",
+  "streaming",
+  "user-modify-playback-state",
 ].join(" ");
 
 function generateRandomString(length: number): string {
