@@ -31,15 +31,15 @@ export function TrackPanel({ track, similar, onClose, onSelect }: TrackPanelProp
 
   return (
     <div className="fixed right-0 top-0 h-full w-80 bg-gray-950/95 border-l border-gray-800 z-40 flex flex-col overflow-y-auto backdrop-blur-md animate-slide-in-right">
-      {/* Close */}
+      {/* Always-visible close button */}
       <button
         onClick={onClose}
-        className="absolute top-3 right-3 text-gray-400 hover:text-white w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-800 transition-colors"
+        className="sticky top-0 z-50 self-end m-2 text-gray-400 hover:text-white w-8 h-8 flex items-center justify-center rounded-full bg-gray-900/80 hover:bg-gray-800 transition-colors backdrop-blur-sm"
       >
         ✕
       </button>
 
-      {/* Album art */}
+      {/* Album art — negative margin pulls it up under the close button */}
       {albumArt && (
         <div className="relative">
           <img src={albumArt} alt="Album art" className="w-full aspect-square object-cover" />

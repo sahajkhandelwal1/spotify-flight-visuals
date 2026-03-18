@@ -1,7 +1,7 @@
 "use client";
 
 import { useFrame, useThree } from "@react-three/fiber";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { PositionedTrack } from "@/lib/tsne";
 
@@ -9,12 +9,26 @@ interface CrosshairRaycasterProps {
   tracks: PositionedTrack[];
   enabled: boolean;
   onHover: (track: PositionedTrack | null, x: number, y: number) => void;
+  onSelect: (track: PositionedTrack) => void;
 }
 
-export function CrosshairRaycaster({ tracks, enabled, onHover }: CrosshairRaycasterProps) {
+export function CrosshairRaycaster({ tracks, enabled, onHover, onSelect }: CrosshairRaycasterProps) {
   const { camera, size } = useThree();
   const raycaster = useRef(new THREE.Raycaster());
   const lastHit = useRef<string | null>(null);
+  const currentTrack = useRef<PositionedTrack | null>(null);
+
+  // Click while pointer-locked: select whatever is under the crosshair
+  useEffect(() => {
+    if (!enabled) return;
+    const onClick = () => {
+      if (document.pointerLockElement && currentTrack.current) {
+        onSelect(currentTrack.current);
+      }
+    };
+    window.addEventListener("click", onClick);
+    return () => window.removeEventListener("click", onClick);
+  }, [enabled, onSelect]);
 
   // Build sphere array once — updated when tracks change
   const spheres = useRef<{ mesh: THREE.Sphere; track: PositionedTrack }[]>([]);
@@ -47,6 +61,7 @@ export function CrosshairRaycaster({ tracks, enabled, onHover }: CrosshairRaycas
     const hitId = closest?.track.id ?? null;
     if (hitId !== lastHit.current) {
       lastHit.current = hitId;
+      currentTrack.current = closest;
       onHover(closest, size.width / 2, size.height / 3);
     }
   });

@@ -156,53 +156,45 @@ export async function runTSNEAndCluster(
   onProgress?.("Normalizing features…", 72);
   const featureVectors = tracks.map((t) => normalizeFeatures(t.features));
 
-  onProgress?.("Projecting to 3D (PCA)…", 78);
-  // Yield once so the UI can paint the progress message before the sync work
-  await new Promise<void>((r) => setTimeout(r, 0));
-
-  const coords3D = pca3D(featureVectors);
-
-  onProgress?.("Clustering tracks…", 88);
+  onProgress?.("Clustering tracks…", 80);
   await new Promise<void>((r) => setTimeout(r, 0));
 
   const K = 6;
   const { assignments, centroids } = kMeans(featureVectors, K);
 
-  // Place each cluster at a distinct anchor in 3D space so they're well separated.
-  // Tracks are then scattered around their cluster anchor using PCA as a local offset.
+  // Cluster anchors — well-separated across all three axes so the galaxy reads as
+  // clearly 3D from every angle, including top-down.
   const CLUSTER_ANCHORS: [number, number, number][] = [
-    [   0,   0,    0],
-    [ 160,  130,  -80],
-    [-140,  -120,   70],
-    [  40, -160,  150],
-    [ -80,  170, -150],
-    [ 130, -140,  100],
+    [   0,    0,    0],
+    [ 220,  150, -180],
+    [-200, -140,  160],
+    [  50, -210,  190],
+    [-130,  200, -170],
+    [ 180, -160,  140],
   ];
-
-  // Normalize PCA coords to [-1, 1] then scale to local spread around anchor
-  const localSpread = 55;
-  const maxCoord = Math.max(...coords3D.flat().map(Math.abs), 1);
 
   const positioned: PositionedTrack[] = tracks.map((track, i) => {
     const clusterId = assignments[i];
     const anchor = CLUSTER_ANCHORS[clusterId % CLUSTER_ANCHORS.length];
-    const lx = (coords3D[i][0] / maxCoord) * localSpread;
-    const ly = (coords3D[i][1] / maxCoord) * localSpread;
-    const lz = (coords3D[i][2] / maxCoord) * localSpread;
 
-    // Deterministic per-track jitter so stacked tracks scatter like a nebula.
-    // Uses track ID characters as a cheap hash — same result every render.
-    const h = track.track.id.split("").reduce((a, c) => a * 31 + c.charCodeAt(0), 1);
-    const jitterR = 50 + (h % 55);              // radius 50–104
-    const theta = ((h * 2654435761) >>> 0) / 0xffffffff * Math.PI * 2;
-    const phi   = ((h * 2246822519) >>> 0) / 0xffffffff * Math.PI;
-    const jx = jitterR * Math.sin(phi) * Math.cos(theta);
-    const jy = jitterR * Math.sin(phi) * Math.sin(theta);
-    const jz = jitterR * Math.cos(phi);
+    // LCG chain (Numerical Recipes constants) — each step produces an independent
+    // 32-bit value with no floating-point overflow issues.
+    // This is the only reliable way to get truly independent X, Y, Z jitter.
+    const s0 = track.track.id.split("").reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 1);
+    const s1 = (Math.imul(s0, 1664525) + 1013904223) >>> 0;
+    const s2 = (Math.imul(s1, 1664525) + 1013904223) >>> 0;
+    const s3 = (Math.imul(s2, 1664525) + 1013904223) >>> 0;
+    const s4 = (Math.imul(s3, 1664525) + 1013904223) >>> 0;
+
+    // Each axis is independently and uniformly distributed in [-jitterR, +jitterR]
+    const jitterR = 40 + (s4 % 45);  // 40–85 units — loose nebula cloud
+    const jx = (s1 / 0x100000000 * 2 - 1) * jitterR;
+    const jy = (s2 / 0x100000000 * 2 - 1) * jitterR;
+    const jz = (s3 / 0x100000000 * 2 - 1) * jitterR;
 
     return {
       ...track,
-      position: [anchor[0] + lx + jx, anchor[1] + ly + jy, anchor[2] + lz + jz],
+      position: [anchor[0] + jx, anchor[1] + jy, anchor[2] + jz],
       normalizedFeatures: featureVectors[i],
       clusterId,
       clusterColor: CLUSTER_COLORS[clusterId % CLUSTER_COLORS.length],

@@ -49,14 +49,14 @@ function SceneInner({
       <ambientLight intensity={0.1} />
       <pointLight position={[0, 0, 0]} intensity={2} color="#ffffff" distance={300} />
 
-      {/* Cluster-colored point lights */}
-      {clusters.slice(0, 3).map((c) => (
+      {/* Cluster-colored point lights — all clusters, boosted for new emissive materials */}
+      {clusters.map((c) => (
         <pointLight
           key={c.id}
           position={c.centroid}
-          intensity={0.5}
+          intensity={1.2}
           color={c.color}
-          distance={80}
+          distance={120}
         />
       ))}
 
@@ -76,13 +76,13 @@ function SceneInner({
       />
 
       <FlyControls enabled={introComplete} />
-      <CrosshairRaycaster tracks={tracks} enabled={pointerLocked} onHover={onHover} />
+      <CrosshairRaycaster tracks={tracks} enabled={pointerLocked} onHover={onHover} onSelect={onSelect} />
 
       <EffectComposer>
         <Bloom
-          luminanceThreshold={0.8}
-          luminanceSmoothing={0.3}
-          intensity={0.6}
+          luminanceThreshold={0.4}
+          luminanceSmoothing={0.7}
+          intensity={0.9}
           mipmapBlur
         />
       </EffectComposer>

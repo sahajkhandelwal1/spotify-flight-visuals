@@ -60,7 +60,8 @@ export default function VisualizerPage() {
   }, []);
 
   const handleSelect = useCallback((track: PositionedTrack) => {
-    setSelectedTrack(track);
+    if (document.pointerLockElement) document.exitPointerLock();
+    setSelectedTrack((prev) => (prev?.track.id === track.track.id ? null : track));
     setHoveredTrack(null);
   }, []);
 
