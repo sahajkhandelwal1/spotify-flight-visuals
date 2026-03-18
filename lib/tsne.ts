@@ -1,5 +1,5 @@
 import { EnrichedTrack } from "./spotify";
-import { normalizeFeatures, getClusterLabel, CLUSTER_COLORS } from "./features";
+import { normalizeFeatures, getClusterLabels, CLUSTER_COLORS } from "./features";
 
 export interface PositionedTrack extends EnrichedTrack {
   position: [number, number, number];
@@ -201,6 +201,8 @@ export async function runTSNEAndCluster(
     };
   });
 
+  const clusterLabels = getClusterLabels(centroids);
+
   const clusters: ClusterInfo[] = [];
   for (let ci = 0; ci < K; ci++) {
     const members = positioned.filter((t) => t.clusterId === ci);
@@ -208,7 +210,7 @@ export async function runTSNEAndCluster(
     clusters.push({
       id: ci,
       color: CLUSTER_COLORS[ci % CLUSTER_COLORS.length],
-      label: getClusterLabel(centroids[ci]),
+      label: clusterLabels[ci],
       centroid: [
         members.reduce((s, t) => s + t.position[0], 0) / members.length,
         members.reduce((s, t) => s + t.position[1], 0) / members.length,

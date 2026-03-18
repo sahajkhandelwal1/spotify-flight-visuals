@@ -37,15 +37,48 @@ export const CLUSTER_COLORS = [
   "#cc44ff", // Ambient / Acoustic — purple
 ];
 
-export function getClusterLabel(centroid: number[]): string {
-  const [energy, valence, dance, acoustic, instrumental] = centroid;
-  if (instrumental > 0.5 && acoustic > 0.4) return "Ambient / Acoustic";
-  if (energy > 0.65 && valence > 0.55) return "Euphoric";
-  if (energy > 0.65 && valence < 0.45) return "Dark & Intense";
-  if (energy < 0.45 && valence > 0.55) return "Chill & Happy";
-  if (energy < 0.45 && valence < 0.45) return "Melancholic";
-  if (dance > 0.65) return "Groove";
-  return "Mixed Vibes";
+// Labels for the feature dimension where a cluster scores highest vs. others (high/low).
+// Index matches FEATURE_NAMES order: Energy, Valence, Dance, Acoustic, Instrumental, Tempo, Loudness, Speech
+const LABEL_HIGH = ["Intense",        "Euphoric",     "Groove",          "Acoustic",   "Ambient",    "Frenetic",    "Hard-Hitting", "Hip-Hop"];
+const LABEL_LOW  = ["Mellow",         "Melancholic",  "Introspective",   "Electronic", "Vocal",      "Slow Burn",   "Ethereal",     "Lyrical"];
+
+// Compare all cluster centroids together so each cluster gets a UNIQUE label
+// based on its most distinctive feature relative to the global mean.
+export function getClusterLabels(centroids: number[][]): string[] {
+  const k = centroids.length;
+  const d = centroids[0].length;
+
+  // Global mean per feature dimension
+  const globalMean = new Array(d).fill(0);
+  for (const c of centroids) c.forEach((v, i) => (globalMean[i] += v / k));
+
+  // Generate (cluster, label, score) candidates for every feature × direction
+  type Candidate = { ci: number; label: string; score: number };
+  const candidates: Candidate[] = [];
+  for (let ci = 0; ci < k; ci++) {
+    for (let fi = 0; fi < d; fi++) {
+      const dev = centroids[ci][fi] - globalMean[fi];
+      candidates.push({
+        ci,
+        label: dev >= 0 ? LABEL_HIGH[fi] : LABEL_LOW[fi],
+        score: Math.abs(dev),
+      });
+    }
+  }
+
+  // Greedy assignment: best score first, each cluster and each label used once
+  candidates.sort((a, b) => b.score - a.score);
+  const labels: string[] = new Array(k).fill("Eclectic");
+  const usedClusters = new Set<number>();
+  const usedLabels   = new Set<string>();
+  for (const { ci, label } of candidates) {
+    if (usedClusters.has(ci) || usedLabels.has(label)) continue;
+    labels[ci] = label;
+    usedClusters.add(ci);
+    usedLabels.add(label);
+    if (usedClusters.size === k) break;
+  }
+  return labels;
 }
 
 export function getDominantFeatures(normalized: number[]): string[] {

@@ -12,6 +12,7 @@ export const REDIRECT_URI =
 export const SCOPES = [
   "user-top-read",
   "user-read-recently-played",
+  "user-library-read",
   "user-read-private",
 ].join(" ");
 

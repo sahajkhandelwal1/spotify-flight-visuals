@@ -37,22 +37,12 @@ export default function VisualizerPage() {
   }, []);
   const [selectedTrack, setSelectedTrack] = useState<PositionedTrack | null>(null);
   const [skipIntro, setSkipIntro] = useState(false);
-  const [showControls, setShowControls] = useState(true);
-
   // Redirect to login if no token
   useEffect(() => {
     if (!authLoading && !token) {
       router.replace("/");
     }
   }, [authLoading, token, router]);
-
-  // Hide controls hint after 5s
-  useEffect(() => {
-    if (!loading && tracks.length > 0) {
-      const t = setTimeout(() => setShowControls(false), 6000);
-      return () => clearTimeout(t);
-    }
-  }, [loading, tracks.length]);
 
   const handleHover = useCallback((track: PositionedTrack | null, x: number, y: number) => {
     setHoveredTrack(track);
@@ -160,14 +150,14 @@ export default function VisualizerPage() {
       )}
 
       {/* Controls hint */}
-      {!pointerLocked && showControls && (
+      {!pointerLocked && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 bg-black/60 text-gray-400 text-xs px-4 py-2 rounded-full backdrop-blur-sm border border-gray-800 flex gap-3">
           <span>Press <kbd className="bg-gray-700 px-1 rounded">F</kbd> to fly</span>
           <span>·</span>
           <span>Click nodes to inspect</span>
         </div>
       )}
-      {pointerLocked && showControls && (
+      {pointerLocked && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 bg-black/60 text-gray-400 text-xs px-4 py-2 rounded-full backdrop-blur-sm border border-gray-800">
           WASD · Space/Shift · Ctrl boost · <kbd className="bg-gray-700 px-1 rounded">F</kbd> to unlock
         </div>

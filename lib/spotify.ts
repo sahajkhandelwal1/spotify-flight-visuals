@@ -55,10 +55,11 @@ async function spotifyFetch<T>(url: string, token: string): Promise<T> {
 export async function fetchTopTracks(
   token: string,
   timeRange: TimeRange,
-  limit = 50
+  limit = 50,
+  offset = 0
 ): Promise<SpotifyTrack[]> {
   const data = await spotifyFetch<{ items: SpotifyTrack[] }>(
-    `https://api.spotify.com/v1/me/top/tracks?time_range=${timeRange}&limit=${limit}`,
+    `https://api.spotify.com/v1/me/top/tracks?time_range=${timeRange}&limit=${limit}&offset=${offset}`,
     token
   );
   return data.items;
@@ -67,13 +68,41 @@ export async function fetchTopTracks(
 export async function fetchTopArtists(
   token: string,
   timeRange: TimeRange,
-  limit = 50
+  limit = 50,
+  offset = 0
 ): Promise<SpotifyArtist[]> {
   const data = await spotifyFetch<{ items: SpotifyArtist[] }>(
-    `https://api.spotify.com/v1/me/top/artists?time_range=${timeRange}&limit=${limit}`,
+    `https://api.spotify.com/v1/me/top/artists?time_range=${timeRange}&limit=${limit}&offset=${offset}`,
     token
   );
   return data.items;
+}
+
+export async function fetchRecentlyPlayed(
+  token: string,
+  limit = 50
+): Promise<SpotifyTrack[]> {
+  const data = await spotifyFetch<{ items: { track: SpotifyTrack }[] }>(
+    `https://api.spotify.com/v1/me/player/recently-played?limit=${limit}`,
+    token
+  );
+  return data.items.map((i) => i.track);
+}
+
+export async function fetchSavedTracks(
+  token: string,
+  pages = 4
+): Promise<SpotifyTrack[]> {
+  const tracks: SpotifyTrack[] = [];
+  for (let page = 0; page < pages; page++) {
+    const data = await spotifyFetch<{ items: { track: SpotifyTrack }[]; next: string | null }>(
+      `https://api.spotify.com/v1/me/tracks?limit=50&offset=${page * 50}`,
+      token
+    );
+    tracks.push(...data.items.map((i) => i.track));
+    if (!data.next) break; // fewer saved tracks than requested pages
+  }
+  return tracks;
 }
 
 // Derive AudioFeatures from artist genres + track metadata
@@ -198,37 +227,59 @@ export async function fetchAllTopTracksWithFeatures(
   const ranges: TimeRange[] = ["short_term", "medium_term", "long_term"];
   const trackMap = new Map<string, { track: SpotifyTrack; ranges: Set<TimeRange> }>();
 
-  // Fetch all 3 track time ranges
-  for (let i = 0; i < ranges.length; i++) {
-    const range = ranges[i];
-    console.log(`[spotify] fetching top tracks: ${range}`);
-    onProgress?.(`Fetching ${range.replace(/_/g, " ")} tracks…`, (i / ranges.length) * 25);
-    const tracks = await fetchTopTracks(token, range);
-    console.log(`[spotify] got ${tracks.length} tracks for ${range}`);
-    for (const track of tracks) {
-      const existing = trackMap.get(track.id);
-      if (existing) {
-        existing.ranges.add(range);
-      } else {
-        trackMap.set(track.id, { track, ranges: new Set([range]) });
+  const addTrack = (track: SpotifyTrack, range?: TimeRange) => {
+    const existing = trackMap.get(track.id);
+    if (existing) {
+      if (range) existing.ranges.add(range);
+    } else {
+      trackMap.set(track.id, { track, ranges: new Set(range ? [range] : []) });
+    }
+  };
+
+  // Top tracks — 2 pages per time range (up to 100 per range)
+  let step = 0;
+  const totalTrackFetches = ranges.length * 2;
+  for (const range of ranges) {
+    for (const offset of [0, 50]) {
+      onProgress?.(`Fetching top tracks (${range.replace(/_/g, " ")})…`, (step / totalTrackFetches) * 20);
+      const tracks = await fetchTopTracks(token, range, 50, offset);
+      tracks.forEach((t) => addTrack(t, range));
+      step++;
+    }
+  }
+
+  // Recently played
+  onProgress?.("Fetching recently played…", 22);
+  try {
+    const recent = await fetchRecentlyPlayed(token, 50);
+    recent.forEach((t) => addTrack(t));
+  } catch {
+    console.warn("[spotify] recently played unavailable, skipping");
+  }
+
+  // Liked songs — 4 pages (up to 200 tracks)
+  onProgress?.("Fetching liked songs…", 28);
+  try {
+    const saved = await fetchSavedTracks(token, 4);
+    saved.forEach((t) => addTrack(t));
+  } catch {
+    console.warn("[spotify] liked songs unavailable, skipping");
+  }
+
+  // Fetch top artists from all 3 ranges × 2 pages to build genre map
+  onProgress?.("Fetching artist genres…", 38);
+  const artistMap = new Map<string, SpotifyArtist>();
+  for (const range of ranges) {
+    for (const offset of [0, 50]) {
+      const artists = await fetchTopArtists(token, range, 50, offset);
+      for (const artist of artists) {
+        if (!artistMap.has(artist.id)) artistMap.set(artist.id, artist);
       }
     }
   }
 
-  // Fetch top artists from all 3 ranges to build genre map
-  onProgress?.("Fetching artist genres…", 30);
-  const artistMap = new Map<string, SpotifyArtist>();
-  for (const range of ranges) {
-    console.log(`[spotify] fetching top artists: ${range}`);
-    const artists = await fetchTopArtists(token, range);
-    console.log(`[spotify] got ${artists.length} artists for ${range}`);
-    for (const artist of artists) {
-      if (!artistMap.has(artist.id)) artistMap.set(artist.id, artist);
-    }
-  }
-
   console.log(`[spotify] deriving features for ${trackMap.size} tracks`);
-  onProgress?.("Deriving audio features from genres…", 55);
+  onProgress?.("Deriving audio features from genres…", 58);
 
   const enriched: EnrichedTrack[] = [];
   let loopCount = 0;

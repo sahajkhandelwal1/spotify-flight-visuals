@@ -45,16 +45,19 @@ function ClusterLabel({
   return (
     <group ref={groupRef} position={cluster.centroid}>
       <Text
-        fontSize={3}
+        font="/orbitron.ttf"
+        fontSize={2.6}
         color={cluster.color}
         anchorX="center"
         anchorY="middle"
-        outlineWidth={0.1}
+        outlineWidth={0.18}
         outlineColor="#000000"
+        outlineOpacity={0.7}
+        letterSpacing={0.12}
         depthOffset={-1}
         position={[0, 2, 0]}
       >
-        {cluster.label}
+        {cluster.label.toUpperCase()}
       </Text>
     </group>
   );
