@@ -10,6 +10,8 @@ import { LoadingScreen } from "@/components/ui/LoadingScreen";
 import { HoverTooltip } from "@/components/ui/HoverTooltip";
 import { TrackPanel } from "@/components/ui/TrackPanel";
 import { PositionedTrack } from "@/lib/tsne";
+import { useNowPlaying } from "@/hooks/useNowPlaying";
+import { PlayBar } from "@/components/ui/PlayBar";
 
 // Dynamically import the 3D scene to avoid SSR issues
 const Scene = dynamic(
@@ -37,8 +39,8 @@ export default function VisualizerPage() {
     return () => document.removeEventListener("pointerlockchange", onLockChange);
   }, []);
   const player = useSpotifyPlayer(token);
+  const nowPlaying = useNowPlaying(token);
   const [selectedTrack, setSelectedTrack] = useState<PositionedTrack | null>(null);
-  const [skipIntro, setSkipIntro] = useState(false);
   // Redirect to login if no token
   useEffect(() => {
     if (!authLoading && !token) {
@@ -115,23 +117,13 @@ export default function VisualizerPage() {
           clusters={clusters}
           onHover={handleHover}
           onSelect={handleSelect}
-          skipIntro={skipIntro}
+          skipIntro={false}
           pointerLocked={pointerLocked}
           playingTrackId={player.isPremium ? player.currentTrackId : (selectedTrack?.track.id ?? null)}
         />
       </div>
 
-      {/* Skip intro button */}
-      {!skipIntro && (
-        <button
-          onClick={() => setSkipIntro(true)}
-          className="fixed top-4 right-4 z-30 text-gray-400 hover:text-white text-sm bg-black/40 px-3 py-1.5 rounded-full border border-gray-700 hover:border-gray-500 transition-colors backdrop-blur-sm"
-        >
-          Skip intro
-        </button>
-      )}
-
-      {/* Track count + logout */}
+{/* Track count + logout */}
       <div className="fixed top-4 left-4 z-30 flex flex-col gap-1">
         <div className="text-gray-500 text-xs bg-black/40 px-3 py-1.5 rounded-full backdrop-blur-sm">
           {tracks.length} tracks • {clusters.length} clusters
@@ -155,19 +147,22 @@ export default function VisualizerPage() {
         </div>
       )}
 
-      {/* Controls hint */}
+      {/* Controls hint — pushed up when playbar is visible */}
       {!pointerLocked && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 bg-black/60 text-gray-400 text-xs px-4 py-2 rounded-full backdrop-blur-sm border border-gray-800 flex gap-3">
-          <span>Press <kbd className="bg-gray-700 px-1 rounded">Shift</kbd> to fly</span>
+        <div className={`fixed left-1/2 -translate-x-1/2 z-30 bg-black/60 text-gray-400 text-xs px-4 py-2 rounded-full backdrop-blur-sm border border-gray-800 flex gap-3 ${nowPlaying ? "bottom-16" : "bottom-6"}`}>
+          <span>Press <kbd className="bg-gray-700 px-1 rounded">F</kbd> to fly</span>
           <span>·</span>
           <span>Click nodes to inspect</span>
         </div>
       )}
       {pointerLocked && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 bg-black/60 text-gray-400 text-xs px-4 py-2 rounded-full backdrop-blur-sm border border-gray-800">
-          WASD · Space · Ctrl boost · <kbd className="bg-gray-700 px-1 rounded">Shift</kbd> to unlock
+        <div className={`fixed left-1/2 -translate-x-1/2 z-30 bg-black/60 text-gray-400 text-xs px-4 py-2 rounded-full backdrop-blur-sm border border-gray-800 ${nowPlaying ? "bottom-16" : "bottom-6"}`}>
+          WASD · Space · Shift boost · <kbd className="bg-gray-700 px-1 rounded">F</kbd> to unlock
         </div>
       )}
+
+      {/* Now Playing bar */}
+      {nowPlaying && <PlayBar nowPlaying={nowPlaying} />}
 
       {/* Hover tooltip — free cursor OR crosshair aim */}
       {hoveredTrack && !selectedTrack && (

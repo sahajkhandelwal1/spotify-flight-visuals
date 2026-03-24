@@ -23,8 +23,8 @@ export function FlyControls({ enabled, speed = 30 }: FlyControlsProps) {
     const onKeyDown = (e: KeyboardEvent) => {
       keysRef.current.add(e.code);
 
-      // Shift toggles fly mode (pointer lock)
-      if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
+      // F toggles fly mode (pointer lock)
+      if (e.code === "KeyF") {
         if (pointerLocked.current) {
           document.exitPointerLock();
         } else {
@@ -78,7 +78,7 @@ export function FlyControls({ enabled, speed = 30 }: FlyControlsProps) {
 
     if (moveDir.length() > 0) {
       moveDir.normalize().applyQuaternion(camera.quaternion);
-      const boost = keys.has("ControlLeft") ? 3 : 1;
+      const boost = (keys.has("ShiftLeft") || keys.has("ShiftRight")) ? 3 : 1;
       camera.position.addScaledVector(moveDir, speed * boost * delta);
     }
   });
